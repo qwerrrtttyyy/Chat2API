@@ -213,6 +213,17 @@ pre{background:var(--bg3);padding:12px;border-radius:8px;overflow-x:auto;font-si
       </div>
       <div id="oauthSection" style="display:none">
         <div id="oauthInfo"></div>
+        <div id="autoOAuthSection" style="display:none">
+          <button class="btn btn-primary btn-block" id="autoLoginBtn" onclick="startAutoOAuth()" style="background:var(--green);margin:8px 0">自动登录 (Playwright)</button>
+          <div id="autoOAuthProgress" style="display:none;margin:8px 0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <span class="status-dot running"></span>
+              <span id="autoOAuthStatus" style="font-size:0.85rem">正在启动...</span>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="cancelAutoOAuth()">取消</button>
+          </div>
+          <p class="help-text" id="autoOAuthHelp" style="display:none">需要安装 Playwright: npm install playwright && npx playwright install chromium</p>
+        </div>
         <div class="oauth-or">— 或者手动输入 Token —</div>
       </div>
       <div class="form-group">
@@ -272,6 +283,8 @@ let API_BASE = '';
 let SECRET = '';
 let providers = [];
 let accounts = [];
+let autoOAuthSessionId = null;
+let autoOAuthPollTimer = null;
 
 // ============== API ==============
 async function api(path, options = {}) {
@@ -492,6 +505,8 @@ function showAddAccount() {
 function onProviderChange() {
   const pid = document.getElementById('accProvider').value;
   const oauthSection = document.getElementById('oauthSection');
+  const autoOAuthSection = document.getElementById('autoOAuthSection');
+  const autoOAuthHelp = document.getElementById('autoOAuthHelp');
   const tokenLabel = document.getElementById('tokenFieldLabel');
   const tokenHelp = document.getElementById('tokenHelp');
 
@@ -517,11 +532,115 @@ function onProviderChange() {
     document.getElementById('oauthInfo').innerHTML = `
       <a href="${cfg.loginUrl}" target="_blank" class="oauth-link">在浏览器中打开 ${pid} 登录页</a>
       <p class="help-text">登录后复制 Token 粘贴到下方输入框</p>`;
+
+    // Check if auto OAuth is available
+    autoOAuthSection.style.display = 'block';
+    checkAutoOAuthAvailable();
   } else {
     oauthSection.style.display = 'none';
+    autoOAuthSection.style.display = 'none';
     tokenLabel.textContent = 'Token';
     tokenHelp.textContent = '';
   }
+}
+
+async function checkAutoOAuthAvailable() {
+  try {
+    const res = await api('/oauth/auto/available');
+    if (res.success && res.data?.available) {
+      document.getElementById('autoLoginBtn').style.display = 'block';
+      document.getElementById('autoOAuthHelp').style.display = 'none';
+    } else {
+      document.getElementById('autoLoginBtn').style.display = 'none';
+      document.getElementById('autoOAuthHelp').style.display = 'block';
+      document.getElementById('autoOAuthHelp').textContent = res.data?.message || 'Playwright 未安装';
+    }
+  } catch {
+    document.getElementById('autoLoginBtn').style.display = 'none';
+    document.getElementById('autoOAuthHelp').style.display = 'block';
+  }
+}
+
+async function startAutoOAuth() {
+  const pid = document.getElementById('accProvider').value;
+  if (!pid) return;
+
+  document.getElementById('autoLoginBtn').style.display = 'none';
+  document.getElementById('autoOAuthProgress').style.display = 'block';
+  document.getElementById('autoOAuthStatus').textContent = '正在启动浏览器...';
+
+  try {
+    const res = await api(`/oauth/${pid}/auto/start`, { method: 'POST', body: '{}' });
+    if (!res.success) {
+      toast(res.error?.message || '启动失败', 'error');
+      resetAutoOAuthUI();
+      return;
+    }
+
+    autoOAuthSessionId = res.data.sessionId;
+    document.getElementById('autoOAuthStatus').textContent = res.data.message;
+    // Start polling
+    pollAutoOAuthProgress();
+  } catch (e) {
+    toast('启动自动登录失败: ' + e.message, 'error');
+    resetAutoOAuthUI();
+  }
+}
+
+async function pollAutoOAuthProgress() {
+  if (!autoOAuthSessionId) return;
+
+  try {
+    const res = await api(`/oauth/auto/${autoOAuthSessionId}/status`);
+    if (!res.success) {
+      toast('获取进度失败', 'error');
+      resetAutoOAuthUI();
+      return;
+    }
+
+    const data = res.data;
+    document.getElementById('autoOAuthStatus').textContent = `[${data.status}] ${data.message}`;
+
+    if (data.status === 'complete') {
+      // Fill in the token
+      if (data.credentials) {
+        const token = data.credentials.token || data.credentials.userToken || data.credentials._token
+          || data.credentials.chatglm_refresh_token || data.credentials.tongyi_sso_ticket
+          || data.credentials['__Secure-next-auth.session-token'] || data.credentials['next-auth.session-token']
+          || Object.values(data.credentials)[0] || '';
+        document.getElementById('accToken').value = token;
+        toast('Token 已自动获取！', 'success');
+      }
+      resetAutoOAuthUI();
+      return;
+    }
+
+    if (data.status === 'error') {
+      toast('自动登录失败: ' + (data.error || data.message), 'error');
+      resetAutoOAuthUI();
+      return;
+    }
+
+    // Continue polling
+    autoOAuthPollTimer = setTimeout(pollAutoOAuthProgress, 2000);
+  } catch (e) {
+    toast('轮询失败: ' + e.message, 'error');
+    resetAutoOAuthUI();
+  }
+}
+
+function cancelAutoOAuth() {
+  if (autoOAuthSessionId) {
+    api(`/oauth/auto/${autoOAuthSessionId}/cancel`, { method: 'POST' }).catch(() => {});
+  }
+  resetAutoOAuthUI();
+}
+
+function resetAutoOAuthUI() {
+  autoOAuthSessionId = null;
+  if (autoOAuthPollTimer) { clearTimeout(autoOAuthPollTimer); autoOAuthPollTimer = null; }
+  document.getElementById('autoLoginBtn').style.display = 'block';
+  document.getElementById('autoOAuthProgress').style.display = 'none';
 }
 
 async function validateAccountToken() {

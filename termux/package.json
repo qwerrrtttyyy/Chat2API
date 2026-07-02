@@ -18,6 +18,9 @@
     "mime-types": "^3.0.2",
     "zstd-codec": "^0.1.5"
   },
+  "optionalDependencies": {
+    "playwright": "^1.52.0"
+  },
   "devDependencies": {
     "@types/koa": "^2.15.0",
     "@types/koa-bodyparser": "^4.3.12",

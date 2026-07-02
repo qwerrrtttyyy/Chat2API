@@ -11,6 +11,7 @@ import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { storeManager } from './file-store.js'
 import { headlessOAuth } from './headless-oauth.js'
+import { autoOAuthManager } from './auto-oauth.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -92,6 +93,66 @@ export function setupWebAdminRoutes(): Router {
         authType: p.authType,
       }))
     ctx.body = { success: true, data: oauthProviders }
+  })
+
+  // ==================== Auto OAuth Endpoints ====================
+
+  // Check if auto OAuth (Playwright) is available
+  router.get('/v0/management/oauth/auto/available', async (ctx) => {
+    ctx.body = {
+      success: true,
+      data: {
+        available: autoOAuthManager.isAvailable(),
+        message: autoOAuthManager.isAvailable()
+          ? 'Playwright is available for automated OAuth'
+          : 'Playwright not installed. Run: npm install playwright && npx playwright install chromium',
+      },
+    }
+  })
+
+  // Start auto OAuth for a provider
+  router.post('/v0/management/oauth/:providerId/auto/start', async (ctx) => {
+    const { providerId } = ctx.params
+    const body = ctx.request.body as { credentials?: Record<string, string> } || {}
+
+    try {
+      const result = await autoOAuthManager.startForProvider(providerId, body.credentials)
+      if (!result.sessionId) {
+        ctx.status = 400
+        ctx.body = { success: false, error: { message: result.message } }
+        return
+      }
+      ctx.body = {
+        success: true,
+        data: {
+          sessionId: result.sessionId,
+          providerId,
+          message: result.message,
+        },
+      }
+    } catch (error: any) {
+      ctx.status = 500
+      ctx.body = { success: false, error: { message: error.message } }
+    }
+  })
+
+  // Poll auto OAuth progress
+  router.get('/v0/management/oauth/auto/:sessionId/status', async (ctx) => {
+    const { sessionId } = ctx.params
+    const progress = autoOAuthManager.getProgress(sessionId)
+    if (!progress) {
+      ctx.status = 404
+      ctx.body = { success: false, error: { message: 'Session not found' } }
+      return
+    }
+    ctx.body = { success: true, data: progress }
+  })
+
+  // Cancel auto OAuth session
+  router.post('/v0/management/oauth/auto/:sessionId/cancel', async (ctx) => {
+    const { sessionId } = ctx.params
+    const cancelled = autoOAuthManager.cancelSession(sessionId)
+    ctx.body = { success: cancelled, data: { cancelled } }
   })
 
   return router
