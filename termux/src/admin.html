@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Chat2API Termux - 管理面板</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --bg2: #1a1d27;
+  --bg3: #252836;
+  --border: #2d3040;
+  --text: #e0e0e0;
+  --text2: #9094a6;
+  --accent: #6366f1;
+  --accent2: #818cf8;
+  --green: #22c55e;
+  --red: #ef4444;
+  --yellow: #f59e0b;
+  --radius: 10px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
+.container{max-width:800px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin-bottom:16px}
+h2{font-size:1.2rem;margin-bottom:12px;color:var(--text2)}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.card-header h3{font-size:1rem}
+.btn{padding:8px 16px;border:none;border-radius:8px;font-size:0.9rem;cursor:pointer;transition:all .2s;font-weight:500}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2)}
+.btn-danger{background:var(--red);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{background:var(--bg3)}
+.btn-sm{padding:4px 10px;font-size:0.8rem}
+.btn-block{width:100%}
+input,select,textarea{width:100%;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+.form-group{margin-bottom:12px}
+.form-group label{display:block;font-size:0.85rem;color:var(--text2);margin-bottom:4px}
+.form-row{display:flex;gap:8px}
+.form-row>*{flex:1}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600}
+.badge-green{background:var(--green);color:#000}
+.badge-red{background:var(--red);color:#fff}
+.badge-yellow{background:var(--yellow);color:#000}
+.badge-accent{background:var(--accent);color:#fff}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+.status-dot.running{background:var(--green);animation:pulse 2s infinite}
+.status-dot.stopped{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+
+.tabs{display:flex;gap:4px;margin-bottom:16px}
+.tab{padding:8px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:0.9rem;color:var(--text2);transition:all .2s}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+.list-item{display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg3);border-radius:8px;margin-bottom:8px}
+.list-item-info{flex:1}
+.list-item-name{font-weight:600}
+.list-item-desc{font-size:0.8rem;color:var(--text2)}
+.list-item-actions{display:flex;gap:6px}
+
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:100;justify-content:center;align-items:center;padding:16px}
+.modal-overlay.active{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto}
+.modal h3{margin-bottom:16px}
+.modal-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:8px;font-size:0.9rem;z-index:200;animation:slideUp .3s;max-width:90vw}
+.toast.success{background:var(--green);color:#000}
+.toast.error{background:var(--red);color:#fff}
+@keyframes slideUp{from{transform:translateX(-50%) translateY(20px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
+
+.login-container{display:flex;justify-content:center;align-items:center;min-height:100vh;padding:16px}
+.login-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:32px;width:100%;max-width:400px;text-align:center}
+.login-card h1{font-size:1.6rem;margin-bottom:8px}
+.login-card p{color:var(--text2);margin-bottom:24px;font-size:0.9rem}
+.login-card .secret-input{margin-bottom:16px}
+
+.help-text{font-size:0.8rem;color:var(--text2);margin-top:4px}
+.help-text a{color:var(--accent2)}
+.empty-state{text-align:center;padding:32px;color:var(--text2)}
+.empty-state p{margin-bottom:8px}
+.divider{height:1px;background:var(--border);margin:16px 0}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.stat-item{background:var(--bg3);padding:12px;border-radius:8px;text-align:center}
+.stat-value{font-size:1.5rem;font-weight:700}
+.stat-label{font-size:0.75rem;color:var(--text2)}
+
+.oauth-link{display:block;padding:12px;background:var(--accent);color:#fff;text-align:center;border-radius:8px;text-decoration:none;margin:8px 0;font-weight:500}
+.oauth-or{text-align:center;color:var(--text2);margin:8px 0;font-size:0.85rem}
+pre{background:var(--bg3);padding:12px;border-radius:8px;overflow-x:auto;font-size:0.8rem;white-space:pre-wrap;word-break:break-all}
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="loginScreen" class="login-container">
+  <div class="login-card">
+    <h1>Chat2API</h1>
+    <p>Termux 无头版管理面板</p>
+    <div class="form-group">
+      <label>管理密钥</label>
+      <input type="password" id="secretInput" class="secret-input" placeholder="输入管理密钥" autofocus>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="login()">登录</button>
+    <p class="help-text" style="margin-top:12px">默认密钥: <code>admin</code>（首次启动时自动生成）</p>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="appScreen" style="display:none">
+  <div class="container">
+    <div class="flex-between" style="margin-bottom:16px">
+      <h1>Chat2API 管理面板</h1>
+      <div>
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText" style="font-size:0.9rem">--</span>
+        <button class="btn btn-outline btn-sm" onclick="logout()" style="margin-left:8px">退出</button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('dashboard')">仪表盘</button>
+      <button class="tab" onclick="switchTab('providers')">提供商</button>
+      <button class="tab" onclick="switchTab('accounts')">账户</button>
+      <button class="tab" onclick="switchTab('settings')">设置</button>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="tab-dashboard" class="tab-content active">
+      <div class="card">
+        <div class="card-header"><h3>代理状态</h3></div>
+        <div id="proxyStatus">加载中...</div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>统计概览</h3></div>
+        <div class="stats-grid" id="statsGrid">加载中...</div>
+      </div>
+    </div>
+
+    <!-- Providers -->
+    <div id="tab-providers" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h3>提供商列表</h3>
+          <button class="btn btn-primary btn-sm" onclick="showAddProvider()">添加</button>
+        </div>
+        <div id="providersList">加载中...</div>
+      </div>
+    </div>
+
+    <!-- Accounts -->
+    <div id="tab-accounts" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h3>账户列表</h3>
+          <button class="btn btn-primary btn-sm" onclick="showAddAccount()">添加账户</button>
+        </div>
+        <div id="accountsList">加载中...</div>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div id="tab-settings" class="tab-content">
+      <div class="card">
+        <div class="card-header"><h3>基本设置</h3></div>
+        <div class="form-group">
+          <label>代理端口</label>
+          <input type="number" id="proxyPort" placeholder="8080">
+        </div>
+        <div class="form-group">
+          <label>监听地址</label>
+          <input type="text" id="proxyHost" placeholder="0.0.0.0">
+        </div>
+        <div class="form-group">
+          <label>负载均衡策略</label>
+          <select id="lbStrategy">
+            <option value="round-robin">轮询</option>
+            <option value="fill-first">优先填充</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>管理密钥</h3></div>
+        <div class="form-group">
+          <label>新密钥</label>
+          <input type="text" id="newSecret" placeholder="留空则不修改">
+        </div>
+        <button class="btn btn-primary" onclick="changeSecret()">更新密钥</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Account Modal -->
+  <div class="modal-overlay" id="addAccountModal">
+    <div class="modal">
+      <h3>添加账户</h3>
+      <div class="form-group">
+        <label>提供商</label>
+        <select id="accProvider" onchange="onProviderChange()">
+          <option value="">请选择</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>账户名称</label>
+        <input type="text" id="accName" placeholder="如: My DeepSeek">
+      </div>
+      <div id="oauthSection" style="display:none">
+        <div id="oauthInfo"></div>
+        <div class="oauth-or">— 或者手动输入 Token —</div>
+      </div>
+      <div class="form-group">
+        <label id="tokenFieldLabel">Token</label>
+        <input type="password" id="accToken" placeholder="粘贴 Token">
+        <p class="help-text" id="tokenHelp"></p>
+      </div>
+      <div id="validationResult" style="margin-top:8px"></div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal('addAccountModal')">取消</button>
+        <button class="btn btn-outline" onclick="validateAccountToken()">验证 Token</button>
+        <button class="btn btn-primary" onclick="saveAccount()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Provider Modal -->
+  <div class="modal-overlay" id="addProviderModal">
+    <div class="modal">
+      <h3>添加提供商</h3>
+      <div class="form-group">
+        <label>名称</label>
+        <input type="text" id="provName" placeholder="如: My Provider">
+      </div>
+      <div class="form-group">
+        <label>API 地址</label>
+        <input type="text" id="provEndpoint" placeholder="https://api.example.com">
+      </div>
+      <div class="form-group">
+        <label>Chat 路径</label>
+        <input type="text" id="provChatPath" placeholder="/chat/completions">
+      </div>
+      <div class="form-group">
+        <label>认证类型</label>
+        <select id="provAuthType">
+          <option value="userToken">Token</option>
+          <option value="jwt">JWT</option>
+          <option value="refresh_token">Refresh Token</option>
+          <option value="cookie">Cookie</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>模型列表（逗号分隔）</label>
+        <input type="text" id="provModels" placeholder="model-1, model-2">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal('addProviderModal')">取消</button>
+        <button class="btn btn-primary" onclick="saveProvider()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============== State ==============
+let API_BASE = '';
+let SECRET = '';
+let providers = [];
+let accounts = [];
+
+// ============== API ==============
+async function api(path, options = {}) {
+  const url = `${API_BASE}/v0/management${path}`;
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Management-Secret': SECRET,
+      ...(options.headers || {}),
+    },
+  });
+  return res.json();
+}
+
+// ============== Toast ==============
+function toast(msg, type = 'success') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ============== Modal ==============
+function showModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+// ============== Tab ==============
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.tab[onclick="switchTab('${name}')"]`).classList.add('active');
+  document.getElementById(`tab-${name}`).classList.add('active');
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'providers') loadProviders();
+  if (name === 'accounts') loadAccounts();
+  if (name === 'settings') loadSettings();
+}
+
+// ============== Login ==============
+async function login() {
+  const secret = document.getElementById('secretInput').value.trim();
+  if (!secret) return toast('请输入管理密钥', 'error');
+  SECRET = secret;
+  // Test the secret
+  const res = await api('/proxy/status');
+  if (res.success) {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appScreen').style.display = 'block';
+    localStorage.setItem('chat2api_secret', secret);
+    loadDashboard();
+    loadProviders();
+    loadAccounts();
+  } else {
+    toast('密钥错误或管理 API 未启用', 'error');
+  }
+}
+
+function logout() {
+  localStorage.removeItem('chat2api_secret');
+  location.reload();
+}
+
+// ============== Dashboard ==============
+async function loadDashboard() {
+  // Proxy status
+  const statusRes = await api('/proxy/status');
+  const dot = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  if (statusRes.success && statusRes.data) {
+    const d = statusRes.data;
+    dot.className = `status-dot ${d.isRunning ? 'running' : 'stopped'}`;
+    text.textContent = d.isRunning ? `运行中 :${d.port}` : '已停止';
+    document.getElementById('proxyStatus').innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-item"><div class="stat-value">${d.isRunning ? '运行中' : '已停止'}</div><div class="stat-label">状态</div></div>
+        <div class="stat-item"><div class="stat-value">${d.port || '-'}</div><div class="stat-label">端口</div></div>
+        <div class="stat-item"><div class="stat-value">${d.uptime ? Math.floor(d.uptime/1000) + 's' : '-'}</div><div class="stat-label">运行时间</div></div>
+        <div class="stat-item"><div class="stat-value">${d.connections || 0}</div><div class="stat-label">连接数</div></div>
+      </div>`;
+    if (!d.isRunning) {
+      document.getElementById('proxyStatus').innerHTML +=
+        `<button class="btn btn-primary btn-sm" onclick="startProxy()" style="margin-top:8px">启动代理</button>`;
+    }
+  }
+
+  // Stats
+  try {
+    const statsRes = await api('/statistics');
+    if (statsRes.success) {
+      const s = statsRes.data;
+      document.getElementById('statsGrid').innerHTML = `
+        <div class="stat-item"><div class="stat-value">${s.totalRequests || 0}</div><div class="stat-label">总请求</div></div>
+        <div class="stat-item"><div class="stat-value" style="color:var(--green)">${s.successRequests || 0}</div><div class="stat-label">成功</div></div>
+        <div class="stat-item"><div class="stat-value" style="color:var(--red)">${s.failedRequests || 0}</div><div class="stat-label">失败</div></div>
+        <div class="stat-item"><div class="stat-value">${providers.length}</div><div class="stat-label">提供商</div></div>
+        <div class="stat-item"><div class="stat-value">${accounts.length}</div><div class="stat-label">账户</div></div>`;
+    }
+  } catch(e) {}
+}
+
+async function startProxy() {
+  const res = await api('/proxy/start', { method: 'POST', body: '{}' });
+  if (res.success) toast('代理已启动');
+  else toast(res.error?.message || '启动失败', 'error');
+  loadDashboard();
+}
+
+// ============== Providers ==============
+async function loadProviders() {
+  const res = await api('/providers');
+  if (res.success) {
+    providers = res.data || [];
+    renderProviders();
+  }
+}
+
+function renderProviders() {
+  const el = document.getElementById('providersList');
+  if (providers.length === 0) {
+    el.innerHTML = '<div class="empty-state"><p>暂无提供商</p><p>内置提供商会自动初始化</p></div>';
+    return;
+  }
+  el.innerHTML = providers.map(p => `
+    <div class="list-item">
+      <div class="list-item-info">
+        <div class="list-item-name">${p.name}</div>
+        <div class="list-item-desc">${p.id} · ${p.authType || 'token'} · ${(p.supportedModels||[]).length} 模型</div>
+      </div>
+      <div class="list-item-actions">
+        <span class="badge ${p.enabled ? 'badge-green' : 'badge-red'}">${p.enabled ? '启用' : '禁用'}</span>
+        <button class="btn btn-outline btn-sm" onclick="toggleProvider('${p.id}', ${!p.enabled})">${p.enabled ? '禁用' : '启用'}</button>
+        ${p.type !== 'builtin' ? `<button class="btn btn-danger btn-sm" onclick="deleteProvider('${p.id}')">删除</button>` : ''}
+      </div>
+    </div>`).join('');
+  // Also update account provider dropdown
+  const sel = document.getElementById('accProvider');
+  sel.innerHTML = '<option value="">请选择</option>' + providers.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+}
+
+async function toggleProvider(id, enabled) {
+  await api(`/providers/${id}/status`, { method: 'PATCH', body: JSON.stringify({ enabled }) });
+  loadProviders();
+}
+
+async function deleteProvider(id) {
+  if (!confirm('确定删除此提供商？关联的账户也会被删除。')) return;
+  await api(`/providers/${id}`, { method: 'DELETE' });
+  toast('已删除');
+  loadProviders();
+}
+
+function showAddProvider() {
+  document.getElementById('provName').value = '';
+  document.getElementById('provEndpoint').value = '';
+  document.getElementById('provChatPath').value = '/chat/completions';
+  document.getElementById('provModels').value = '';
+  showModal('addProviderModal');
+}
+
+async function saveProvider() {
+  const name = document.getElementById('provName').value.trim();
+  const endpoint = document.getElementById('provEndpoint').value.trim();
+  if (!name || !endpoint) return toast('请填写名称和 API 地址', 'error');
+  const res = await api('/providers', {
+    method: 'POST',
+    body: JSON.stringify({
+      name,
+      apiEndpoint: endpoint,
+      chatPath: document.getElementById('provChatPath').value.trim() || '/chat/completions',
+      authType: document.getElementById('provAuthType').value,
+      supportedModels: document.getElementById('provModels').value.split(',').map(s => s.trim()).filter(Boolean),
+    }),
+  });
+  if (res.success) { toast('提供商已添加'); closeModal('addProviderModal'); loadProviders(); }
+  else toast(res.error?.message || '添加失败', 'error');
+}
+
+// ============== Accounts ==============
+async function loadAccounts() {
+  const res = await api('/accounts');
+  if (res.success) {
+    accounts = res.data || [];
+    renderAccounts();
+  }
+}
+
+function renderAccounts() {
+  const el = document.getElementById('accountsList');
+  if (accounts.length === 0) {
+    el.innerHTML = '<div class="empty-state"><p>暂无账户</p><p>点击"添加账户"开始配置</p></div>';
+    return;
+  }
+  el.innerHTML = accounts.map(a => `
+    <div class="list-item">
+      <div class="list-item-info">
+        <div class="list-item-name">${a.name}</div>
+        <div class="list-item-desc">${a.providerId} · ${a.email || ''}</div>
+      </div>
+      <div class="list-item-actions">
+        <span class="badge badge-${a.status === 'active' ? 'green' : 'red'}">${a.status}</span>
+        <button class="btn btn-outline btn-sm" onclick="validateAccount('${a.id}')">验证</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteAccount('${a.id}')">删除</button>
+      </div>
+    </div>`).join('');
+}
+
+function showAddAccount() {
+  document.getElementById('accName').value = '';
+  document.getElementById('accToken').value = '';
+  document.getElementById('validationResult').innerHTML = '';
+  document.getElementById('oauthSection').style.display = 'none';
+  document.getElementById('oauthInfo').innerHTML = '';
+  showModal('addAccountModal');
+}
+
+function onProviderChange() {
+  const pid = document.getElementById('accProvider').value;
+  const oauthSection = document.getElementById('oauthSection');
+  const tokenLabel = document.getElementById('tokenFieldLabel');
+  const tokenHelp = document.getElementById('tokenHelp');
+
+  if (!pid) {
+    oauthSection.style.display = 'none';
+    return;
+  }
+
+  const configs = {
+    deepseek: { label: 'User Token', help: '从 chat.deepseek.com 开发者工具中获取 userToken', loginUrl: 'https://chat.deepseek.com' },
+    kimi: { label: 'Access Token (JWT)', help: '从 kimi.com 获取 JWT Token (eyJ 开头)', loginUrl: 'https://www.kimi.com' },
+    glm: { label: 'Refresh Token', help: '从 chatglm.cn 获取 refresh_token', loginUrl: 'https://chatglm.cn' },
+    minimax: { label: 'Token', help: '从 agent.minimaxi.com 获取 token', loginUrl: 'https://agent.minimaxi.com' },
+    qwen: { label: 'SSO Ticket', help: '从 qianwen.com Cookie 获取 tongyi_sso_ticket', loginUrl: 'https://www.qianwen.com' },
+    perplexity: { label: 'Session Token', help: '从 perplexity.ai Cookie 获取 session token', loginUrl: 'https://www.perplexity.ai' },
+  };
+
+  const cfg = configs[pid];
+  if (cfg) {
+    tokenLabel.textContent = cfg.label;
+    tokenHelp.innerHTML = cfg.help;
+    oauthSection.style.display = 'block';
+    document.getElementById('oauthInfo').innerHTML = `
+      <a href="${cfg.loginUrl}" target="_blank" class="oauth-link">在浏览器中打开 ${pid} 登录页</a>
+      <p class="help-text">登录后复制 Token 粘贴到下方输入框</p>`;
+  } else {
+    oauthSection.style.display = 'none';
+    tokenLabel.textContent = 'Token';
+    tokenHelp.textContent = '';
+  }
+}
+
+async function validateAccountToken() {
+  const pid = document.getElementById('accProvider').value;
+  const token = document.getElementById('accToken').value.trim();
+  if (!pid || !token) return toast('请选择提供商并输入 Token', 'error');
+
+  const res = await api('/accounts/validate-token', {
+    method: 'POST',
+    body: JSON.stringify({ providerId: pid, credentials: { token } }),
+  });
+  const el = document.getElementById('validationResult');
+  if (res.success && res.data?.valid) {
+    el.innerHTML = '<span class="badge badge-green">Token 有效</span>';
+    if (res.data.accountInfo) {
+      const info = res.data.accountInfo;
+      el.innerHTML += ` <span style="font-size:0.8rem;color:var(--text2)">${info.email || info.name || ''}</span>`;
+    }
+  } else {
+    el.innerHTML = `<span class="badge badge-red">${res.data?.error || res.error?.message || '验证失败'}</span>`;
+  }
+}
+
+async function saveAccount() {
+  const pid = document.getElementById('accProvider').value;
+  const name = document.getElementById('accName').value.trim();
+  const token = document.getElementById('accToken').value.trim();
+  if (!pid || !name || !token) return toast('请填写所有必填字段', 'error');
+
+  const res = await api('/accounts', {
+    method: 'POST',
+    body: JSON.stringify({ providerId: pid, name, credentials: { token } }),
+  });
+  if (res.success) { toast('账户已添加'); closeModal('addAccountModal'); loadAccounts(); }
+  else toast(res.error?.message || '添加失败', 'error');
+}
+
+async function validateAccount(id) {
+  toast('正在验证...');
+  const res = await api(`/accounts/${id}/validate`, { method: 'POST' });
+  if (res.success) {
+    const v = res.data;
+    toast(v.valid ? '账户有效' : `验证失败: ${v.error || ''}`, v.valid ? 'success' : 'error');
+  }
+  loadAccounts();
+}
+
+async function deleteAccount(id) {
+  if (!confirm('确定删除此账户？')) return;
+  await api(`/accounts/${id}`, { method: 'DELETE' });
+  toast('已删除');
+  loadAccounts();
+}
+
+// ============== Settings ==============
+async function loadSettings() {
+  const res = await api('/config');
+  if (res.success) {
+    const c = res.data;
+    document.getElementById('proxyPort').value = c.proxyPort || 8080;
+    document.getElementById('proxyHost').value = c.proxyHost || '0.0.0.0';
+    document.getElementById('lbStrategy').value = c.loadBalanceStrategy || 'round-robin';
+  }
+}
+
+async function saveSettings() {
+  const res = await api('/config', {
+    method: 'PUT',
+    body: JSON.stringify({
+      proxyPort: parseInt(document.getElementById('proxyPort').value) || 8080,
+      proxyHost: document.getElementById('proxyHost').value.trim() || '0.0.0.0',
+      loadBalanceStrategy: document.getElementById('lbStrategy').value,
+    }),
+  });
+  if (res.success) toast('设置已保存');
+  else toast(res.error?.message || '保存失败', 'error');
+}
+
+async function changeSecret() {
+  const newSecret = document.getElementById('newSecret').value.trim();
+  if (!newSecret) return toast('请输入新密钥', 'error');
+  const res = await api('/config', {
+    method: 'PUT',
+    body: JSON.stringify({
+      managementApi: { enableManagementApi: true, managementApiSecret: newSecret },
+    }),
+  });
+  if (res.success) {
+    SECRET = newSecret;
+    localStorage.setItem('chat2api_secret', newSecret);
+    toast('密钥已更新');
+    document.getElementById('newSecret').value = '';
+  } else {
+    toast(res.error?.message || '更新失败', 'error');
+  }
+}
+
+// ============== Init ==============
+async function init() {
+  API_BASE = window.location.origin;
+  const saved = localStorage.getItem('chat2api_secret');
+  if (saved) {
+    document.getElementById('secretInput').value = saved;
+    login();
+  }
+}
+
+init();
+</script>
+</body>
+</html>

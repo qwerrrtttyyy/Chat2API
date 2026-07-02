@@ -361,6 +361,31 @@ class FileStoreManager {
     const providers = this.data.providers || []
     const builtinIds = BUILTIN_PROVIDERS.map(p => p.id)
 
+    // Ensure all builtin providers exist
+    for (const builtinConfig of BUILTIN_PROVIDERS) {
+      const exists = providers.some((p: Provider) => p.id === builtinConfig.id)
+      if (!exists) {
+        const now = Date.now()
+        const newProvider: Provider = {
+          id: builtinConfig.id,
+          name: builtinConfig.name,
+          type: 'builtin',
+          authType: builtinConfig.authType,
+          apiEndpoint: builtinConfig.apiEndpoint,
+          chatPath: builtinConfig.chatPath,
+          headers: builtinConfig.headers,
+          enabled: true,
+          createdAt: now,
+          updatedAt: now,
+          description: builtinConfig.description,
+          supportedModels: builtinConfig.supportedModels,
+          modelMappings: builtinConfig.modelMappings,
+        }
+        providers.push(newProvider)
+        console.log(`[FileStore] Added builtin provider: ${builtinConfig.id}`)
+      }
+    }
+
     const validProviders = providers.filter((p: Provider) => {
       if (p.type === 'builtin') return builtinIds.includes(p.id)
       return true

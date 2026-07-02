@@ -19,7 +19,9 @@ const PERPLEXITY_SHIM_PATH = path.join(TERMUX_SRC, 'perplexity-shim.ts')
 
 Module._resolveFilename = function (request, parent, isMain, options) {
   // Redirect store imports to our file-based store
-  if (request.endsWith('/store/store') || request.endsWith('/store/store.ts') || request.endsWith('/store/store.js')) {
+  // Handles various relative paths: ../store/store, ../../store/store, ./store, ../store
+  if (request.endsWith('/store/store') || request.endsWith('/store/store.ts') || request.endsWith('/store/store.js') ||
+      request.endsWith('/store') || request.endsWith('/store.ts') || request.endsWith('/store.js')) {
     console.log('[Termux CJS] Redirecting store import:', request, '-> file-store.ts')
     return FILE_STORE_PATH
   }
