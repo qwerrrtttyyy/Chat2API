@@ -178,7 +178,7 @@ export class AutoOAuthManager extends EventEmitter {
     sessionId: string
     message: string
   }> {
-    if (!hasPlaywright) {
+    if (!hasPlaywright || !playwright) {
       // Try to load dynamically
       try {
         playwright = await import('playwright')
@@ -286,6 +286,7 @@ export class AutoOAuthManager extends EventEmitter {
 
     const launchOptions: any = {
       headless: true,
+      channel: 'chromium', // Use full Chromium, not headless shell
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -300,6 +301,16 @@ export class AutoOAuthManager extends EventEmitter {
       launchOptions.executablePath = options.executablePath
     }
 
+    // Store session early so it's available for polling even if browser fails
+    const session: any = {
+      browser: null, context: null, page: null,
+      foundTokens, allCookies, isCompleted: false,
+      timeoutId: null,
+      startTime: Date.now(),
+      progress: { status: 'starting' as const, message: 'Launching browser...' },
+    }
+    this.activeSessions.set(sessionId, session)
+
     try {
       this.emitProgress(sessionId, { status: 'starting', message: 'Launching browser...' })
 
@@ -309,22 +320,16 @@ export class AutoOAuthManager extends EventEmitter {
       } else {
         browser = await chromium.launch(launchOptions)
       }
+      session.browser = browser
 
       context = await browser.newContext({
         userAgent: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
         viewport: { width: 412, height: 915 },
       })
+      session.context = context
 
       page = await context.newPage()
-
-      // Store session
-      const session = {
-        browser, context, page, foundTokens, allCookies, isCompleted,
-        timeoutId: null as NodeJS.Timeout | null,
-        startTime: Date.now(),
-        progress: { status: 'starting' as const, message: 'Launching browser...' },
-      }
-      this.activeSessions.set(sessionId, session)
+      session.page = page
 
       // Set timeout
       const timeout = options.timeout || 300000
@@ -387,13 +392,19 @@ export class AutoOAuthManager extends EventEmitter {
       }, 5000)
 
     } catch (error: any) {
+      // Keep session alive with error so users can poll and see the error
       isCompleted = true
+      session.isCompleted = true
+      if (session.timeoutId) clearTimeout(session.timeoutId)
       this.emitProgress(sessionId, {
         status: 'error',
         message: error.message || 'Auto OAuth failed',
       })
       try { browser?.close() } catch {}
-      this.activeSessions.delete(sessionId)
+      // Keep session for 60s so users can read the error, then clean up
+      setTimeout(() => {
+        this.activeSessions.delete(sessionId)
+      }, 60000)
     }
   }
 
