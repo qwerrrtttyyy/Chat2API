@@ -1,0 +1,29 @@
+{
+  "name": "chat2api-termux",
+  "version": "1.4.0",
+  "description": "Chat2API Termux Headless Edition - OpenAI-compatible API proxy for multiple AI providers",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "start": "node --import tsx src/index.ts",
+    "dev": "node --import tsx --watch src/index.ts"
+  },
+  "dependencies": {
+    "@koa/router": "^15.3.0",
+    "axios": "^1.7.7",
+    "eventsource-parser": "^3.0.6",
+    "js-sha3": "^0.9.3",
+    "koa": "^2.15.3",
+    "koa-bodyparser": "^4.4.1",
+    "mime-types": "^3.0.2",
+    "zstd-codec": "^0.1.5"
+  },
+  "devDependencies": {
+    "@types/koa": "^2.15.0",
+    "@types/koa-bodyparser": "^4.3.12",
+    "@types/mime-types": "^3.0.1",
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.3"
+  }
+}
